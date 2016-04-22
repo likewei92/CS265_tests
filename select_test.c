@@ -35,16 +35,14 @@ int main() {
 	for (int i = 0; i < queries_count - 1; i++) {
 		recycle_ret_lens[i] = basic_scan(col, col_len, select_queries[i], &(recycle_rets[i]));
 	}
-	int *init_pos;
-	int pos_len = merge_pos(recycle_rets, recycle_ret_lens, &init_pos);
+
 	int temp = queries_count - 1;
-	recycle_ret_lens[temp] = sub_prev_scan(col, init_pos, pos_len, select_queries[temp], &(recycle_rets[temp]));
+	recycle_ret_lens[temp] = sub_prev_scan(col, recycle_rets, recycle_ret_lens, temp, select_queries[temp], &(recycle_rets[temp]));
 
 	end = clock();
 	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
 	printf("%f\n", cpu_time_used);
 
-	free(init_pos);
 
 	for (int i = 0; i < queries_count; i++) assert(recycle_ret_lens[i] == basic_ret_lens[i]);
 	for (int i = 0; i < queries_count; i++) {
@@ -118,32 +116,132 @@ int neg_merge_pos(int **pos, int *pos_lens, int col_len, int **ret) {
 	return merged_pos;
 }
 
-int sub_prev_scan(int *col, int *pos, int pos_len, minmax_t mm, int **ret) {
-	*ret = malloc(sizeof(int) * pos_len);
+int sub_prev_scan(int *col, int **prevs, int *prev_lens, int n_prevs, minmax_t mm, int **ret) {
 	int ret_len = 0;
+	int cur_pos[2];
+	memset(cur_pos, 0, sizeof(int) * 2);
+	int total_len = 0;
+	for (int i = 0; i < n_prevs; i++) total_len += prev_lens[i];
+	*ret = malloc(sizeof(int) * total_len);
 
 	switch (mm.stype) {
 	case BOTH:
-		for (int i = 0; i < pos_len; i++) {
-			if (mm.min <= col[pos[i]] && col[pos[i]] < mm.max) {
-				(*ret)[ret_len] = pos[i];
-				ret_len++;
+		for (int i = 0; i < total_len; i++) {
+			if (cur_pos[0] == prev_lens[0]) {
+				for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
+					if ((mm.min <= col[prevs[1][j]]) & (col[prevs[1][j]] < mm.max)) {
+						(*ret)[ret_len] = prevs[1][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (cur_pos[1] == prev_lens[1]) {
+				for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
+					if ((mm.min <= col[prevs[0][j]]) & (col[prevs[0][j]] < mm.max)) {
+						(*ret)[ret_len] = prevs[0][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (prevs[0][cur_pos[0]] < prevs[1][cur_pos[1]]) {
+				if ((mm.min <= col[prevs[0][cur_pos[0]]]) & (col[prevs[0][cur_pos[0]]] < mm.max)) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+			} else if (prevs[0][cur_pos[0]] == prevs[1][cur_pos[1]]) {
+				if ((mm.min <= col[prevs[0][cur_pos[0]]]) & (col[prevs[0][cur_pos[0]]] < mm.max)) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+				cur_pos[1]++;
+			} else {
+				if ((mm.min <= col[prevs[1][cur_pos[1]]]) & (col[prevs[1][cur_pos[1]]] < mm.max)) {
+					(*ret)[ret_len] = prevs[1][cur_pos[1]];
+					ret_len++;
+				}
+				cur_pos[1]++;
 			}
 		}
 		break;
 	case MIN:
-		for (int i = 0; i < pos_len; i++) {
-			if (mm.min <= col[pos[i]]) {
-				(*ret)[ret_len] = pos[i];
-				ret_len++;
+		for (int i = 0; i < total_len; i++) {
+			if (cur_pos[0] == prev_lens[0]) {
+				for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
+					if (mm.min <= col[prevs[1][j]]) {
+						(*ret)[ret_len] = prevs[1][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (cur_pos[1] == prev_lens[1]) {
+				for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
+					if (mm.min <= col[prevs[0][j]]) {
+						(*ret)[ret_len] = prevs[0][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (prevs[0][cur_pos[0]] < prevs[1][cur_pos[1]]) {
+				if (mm.min <= col[prevs[0][cur_pos[0]]]) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+			} else if (prevs[0][cur_pos[0]] == prevs[1][cur_pos[1]]) {
+				if (mm.min <= col[prevs[0][cur_pos[0]]]) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+				cur_pos[1]++;
+			} else {
+				if (mm.min <= col[prevs[1][cur_pos[1]]]) {
+					(*ret)[ret_len] = prevs[1][cur_pos[1]];
+					ret_len++;
+				}
+				cur_pos[1]++;
 			}
 		}
 		break;
 	case MAX:
-		for (int i = 0; i < pos_len; i++) {
-			if (col[pos[i]] < mm.max) {
-				(*ret)[ret_len] = pos[i];
-				ret_len++;
+		for (int i = 0; i < total_len; i++) {
+			if (cur_pos[0] == prev_lens[0]) {
+				for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
+					if (col[prevs[1][j]] < mm.max) {
+						(*ret)[ret_len] = prevs[1][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (cur_pos[1] == prev_lens[1]) {
+				for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
+					if (col[prevs[0][j]] < mm.max) {
+						(*ret)[ret_len] = prevs[0][j];
+						ret_len++;
+					}
+				}
+				break;
+			} else if (prevs[0][cur_pos[0]] < prevs[1][cur_pos[1]]) {
+				if (col[prevs[0][cur_pos[0]]] < mm.max) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+			} else if (prevs[0][cur_pos[0]] == prevs[1][cur_pos[1]]) {
+				if (col[prevs[0][cur_pos[0]]] < mm.max) {
+					(*ret)[ret_len] = prevs[0][cur_pos[0]];
+					ret_len++;
+				}
+				cur_pos[0]++;
+				cur_pos[1]++;
+			} else {
+				if (col[prevs[1][cur_pos[1]]] < mm.max) {
+					(*ret)[ret_len] = prevs[1][cur_pos[1]];
+					ret_len++;
+				}
+				cur_pos[1]++;
 			}
 		}
 		break;

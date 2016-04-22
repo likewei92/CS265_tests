@@ -2,7 +2,7 @@
 CC = gcc -std=c99 -g -ggdb3
 
 # Flags and other libraries
-CFLAGS += -Wall -Wextra -pedantic -pthread -O3
+CFLAGS += -Wall -Wextra -pedantic -pthread -O0
 
 # Header files
 DEPS = 
@@ -17,3 +17,6 @@ select_test: $(OBJ)
 	gcc -o $@.out $^ $(CFLAGS)
 
 all: select_test
+
+clean:
+	rm *.out *.o

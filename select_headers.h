@@ -19,7 +19,7 @@ int load_selects(minmax_t **select_queries);
 
 int basic_scan(int *col, int col_len, minmax_t mm, int **ret);
 
-int sub_prev_scan(int *col, int *pos, int pos_len, minmax_t mm, int **ret);
+int sub_prev_scan(int *col, int **prevs, int *prev_lens, int n_prevs, minmax_t mm, int **ret);
 
 int merge_pos(int **pos, int *pos_lens, int **ret);
 
