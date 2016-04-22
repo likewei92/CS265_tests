@@ -2,7 +2,7 @@
 CC = gcc -std=c99 -g -ggdb3
 
 # Flags and other libraries
-CFLAGS += -Wall -Wextra -pedantic -pthread -O0
+CFLAGS += -Wall -Wextra -pedantic -pthread -O3
 
 # Header files
 DEPS = 
