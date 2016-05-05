@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
+#include <math.h>
 #include "select_pos.h"
 
 int main() {
@@ -61,166 +63,93 @@ int main() {
 	free(select_queries);
 }
 
-int merge_pos(int **pos, int *pos_lens, int **ret) {
-	int cur_pos[2];
-	memset(cur_pos, 0, sizeof(int) * 2);
-	int merged_pos = 0;
-	int total_len = pos_lens[0] + pos_lens[1];
-	*ret = malloc(sizeof(int) * total_len);
-	for (int i = 0; i < total_len; i++) {
-		if (cur_pos[0] == pos_lens[0]) {
-			int left = pos_lens[1] - cur_pos[1];
-			memcpy(&((*ret)[merged_pos]), &(pos[1][cur_pos[1]]), sizeof(int) * left);
-			merged_pos += left;
-			break;
-		} else if (cur_pos[1] == pos_lens[1]) {
-			int left = pos_lens[0] - cur_pos[0];
-			memcpy(&((*ret)[merged_pos]), &(pos[0][cur_pos[0]]), sizeof(int) * left);
-			merged_pos += left;
-			break;
-		} else if (pos[0][cur_pos[0]] < pos[1][cur_pos[1]]) {
-			(*ret)[merged_pos] = pos[0][cur_pos[0]];
-			cur_pos[0]++;
-			merged_pos++;
-		} else if (pos[0][cur_pos[0]] == pos[1][cur_pos[1]]) {
-			(*ret)[merged_pos] = pos[0][cur_pos[0]];
-			cur_pos[0]++;
-			cur_pos[1]++;
-			merged_pos++;
-		} else {
-			(*ret)[merged_pos] = pos[1][cur_pos[1]];
-			cur_pos[1]++;
-			merged_pos++;
-		}
-	}
-	*ret = realloc(*ret, sizeof(int) * merged_pos);
-	return merged_pos;
-}
-
-int neg_merge_pos(int **pos, int *pos_lens, int col_len, int **ret) {
-	int cur_pos[2];
-	memset(cur_pos, 0, sizeof(int) * 2);
-	int merged_pos = 0;
-	*ret = malloc(sizeof(int) * col_len);
-	for (int i = 0; i < col_len; i++) {
-		if (cur_pos[0] < pos_lens[0] && pos[0][cur_pos[0]] == i) {
-			cur_pos[0]++;
-		} else if (cur_pos[1] < pos_lens[1] && pos[1][cur_pos[1]] == i) {
-			cur_pos[1]++;
-		} else {
-			(*ret)[merged_pos] = i;
-			merged_pos++;
-		}
-	}
-	*ret = realloc(*ret, sizeof(int) * merged_pos);
-	return merged_pos;
-}
-
 int sub_prev_scan(int *col, int col_len, int **prevs, int *prev_lens, int n_prevs, minmax_t mm, int **ret) {
 	int ret_len = 0;
 	int cur_pos[n_prevs];
 	memset(cur_pos, 0, sizeof(int) * n_prevs);
 	*ret = malloc(sizeof(int) * col_len);
-	int fin1 = 0;
-	int fin2 = 0;
-//	int quals[n_prevs];
+	int fins[n_prevs];
+	memset(fins, 0, sizeof(int) * n_prevs);
 	int qual1;
 	int qual2;
-	int adv1 = 1;
-	int adv2 = 1;
+	int qual3;
+	int adv1;
+	int adv2;
+	int adv3;
 	int forward1;
 	int forward2;
+	int forward3;
+
+//	int small_n_prevs = n_prevs - 1;
 
 	switch (mm.stype) {
 	case BOTH:
-		while ((fin1 == 0) & (fin2 == 0)) {
-//			for (int i = 0; i < n_prevs; i++) quals[i] = (mm.min <= col[prevs[i][cur_pos[i]]]) & (col[prevs[i][cur_pos[i]]] < mm.max);
+		while ((fins[0] == 0) & (fins[1] == 0) & (fins[2] == 0)) {
 			qual1 = (mm.min <= col[prevs[0][cur_pos[0]]]) & (col[prevs[0][cur_pos[0]]] < mm.max);
 			qual2 = (mm.min <= col[prevs[1][cur_pos[1]]]) & (col[prevs[1][cur_pos[1]]] < mm.max);
-			adv1 = (prevs[0][cur_pos[0]] <= prevs[1][cur_pos[1]]);
-			adv2 = (prevs[1][cur_pos[1]] <= prevs[0][cur_pos[0]]);
-//			forward1 = quals[0] & adv1;
-//			forward2 = quals[1] & adv2;
+			qual3 = (mm.min <= col[prevs[2][cur_pos[2]]]) & (col[prevs[2][cur_pos[2]]] < mm.max);
+			adv1 = (prevs[0][cur_pos[0]] <= prevs[1][cur_pos[1]]) & (prevs[0][cur_pos[0]] <= prevs[2][cur_pos[2]]);
+			adv2 = (prevs[1][cur_pos[1]] <= prevs[0][cur_pos[0]]) & (prevs[1][cur_pos[1]] <= prevs[2][cur_pos[2]]);
+			adv3 = (prevs[2][cur_pos[2]] <= prevs[0][cur_pos[0]]) & (prevs[2][cur_pos[2]] <= prevs[1][cur_pos[1]]);
 			forward1 = qual1 & adv1;
 			forward2 = qual2 & adv2;
-			(*ret)[ret_len] = forward1 ? prevs[0][cur_pos[0]] : prevs[1][cur_pos[1]];
+			forward3 = qual3 & adv3;
+			(*ret)[ret_len] = forward1 ? prevs[0][cur_pos[0]] : (forward2 ? prevs[1][cur_pos[1]] : prevs[2][cur_pos[2]]);
 			cur_pos[0] += adv1;
 			cur_pos[1] += adv2;
-			ret_len += (forward1 | forward2);
-			fin1 = (cur_pos[0] == prev_lens[0]);
-			fin2 = (cur_pos[1] == prev_lens[1]);
+			cur_pos[2] += adv3;
+			ret_len += (forward1 | forward2 | forward3);
+			fins[0] = (cur_pos[0] == prev_lens[0]);
+			fins[1] = (cur_pos[1] == prev_lens[1]);
+			fins[2] = (cur_pos[2] == prev_lens[2]);
 		}
-		if (fin1 & (!fin2)){
-			for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
-				qual2 = ((mm.min <= col[prevs[1][j]]) & (col[prevs[1][j]] < mm.max));
-				(*ret)[ret_len] = prevs[1][j];
-				ret_len += qual2;
+		int unf_1 = 0;
+		int unf_2 = 0;
+
+		if (fins[0] & !(fins[1] | fins[2])) { unf_1 = 1; unf_2 = 2;}
+		else if (fins[1] & !(fins[0] | fins[2])) {unf_1 = 0; unf_2 = 2; }
+		else if (fins[2] & !(fins[0] | fins[1])) {unf_1 = 0; unf_2 = 1; }
+		if ((unf_1 + unf_2) > 0) {
+			while ((fins[unf_1] == 0) & (fins[unf_2] == 0)) {
+				qual1 = (mm.min <= col[prevs[unf_1][cur_pos[unf_1]]]) & (col[prevs[unf_1][cur_pos[unf_1]]] < mm.max);
+				qual2 = (mm.min <= col[prevs[unf_2][cur_pos[unf_2]]]) & (col[prevs[unf_2][cur_pos[unf_2]]] < mm.max);
+				adv1 = (prevs[unf_1][cur_pos[unf_1]] <= prevs[unf_2][cur_pos[unf_2]]);
+				adv2 = (prevs[unf_2][cur_pos[unf_2]] <= prevs[unf_1][cur_pos[unf_1]]);
+				forward1 = qual1 & adv1;
+				forward2 = qual2 & adv2;
+				(*ret)[ret_len] = forward1 ? prevs[unf_1][cur_pos[unf_1]] : prevs[unf_2][cur_pos[unf_2]];
+				cur_pos[unf_1] += adv1;
+				cur_pos[unf_2] += adv2;
+				ret_len += (forward1 | forward2);
+				fins[0] = (cur_pos[unf_1] == prev_lens[unf_1]);
+				fins[1] = (cur_pos[unf_2] == prev_lens[unf_2]);
 			}
-		} else if (fin2 & (!fin1)) {
+		}
+		if (!fins[0]){
 			for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
 				qual1 = ((mm.min <= col[prevs[0][j]]) & (col[prevs[0][j]] < mm.max));
 				(*ret)[ret_len] = prevs[0][j];
 				ret_len += qual1;
 			}
+		} else if (!fins[1]) {
+			for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
+				qual1 = ((mm.min <= col[prevs[1][j]]) & (col[prevs[1][j]] < mm.max));
+				(*ret)[ret_len] = prevs[1][j];
+				ret_len += qual1;
+			}
+		} else if (!fins[2]) {
+			for (int j = cur_pos[2]; j < prev_lens[2]; j++) {
+				qual1 = ((mm.min <= col[prevs[2][j]]) & (col[prevs[2][j]] < mm.max));
+				(*ret)[ret_len] = prevs[2][j];
+				ret_len += qual1;
+			}
 		}
 		break;
 	case MIN:
-//		while ((fin1 == 0) & (fin2 == 0)) {
-//			qual1 = (mm.min <= col[prevs[0][cur_pos[0]]]);
-//			qual2 = (mm.min <= col[prevs[1][cur_pos[1]]]);
-//			small1 = (prevs[0][cur_pos[0]] < prevs[1][cur_pos[1]]);
-//			small2 = (prevs[1][cur_pos[1]] < prevs[0][cur_pos[0]]);
-//			adv1 = ((small1 | !small2));
-//			adv2 = ((small2 | !small1));
-//			(*ret)[ret_len] = (qual1 & adv1) ? prevs[0][cur_pos[0]] : prevs[1][cur_pos[1]];
-//			cur_pos[0] += adv1;
-//			cur_pos[1] += adv2;
-//			ret_len += ((qual1 & adv1) | (qual2 & adv2));
-//			fin1 = (cur_pos[0] == prev_lens[0]);
-//			fin2 = (cur_pos[1] == prev_lens[1]);
-//		}
-//		if (fin1 & (!fin2)){
-//			for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
-//				qual2 = (mm.min <= col[prevs[1][j]]);
-//				(*ret)[ret_len] = prevs[1][j];
-//				ret_len += qual2;
-//			}
-//		} else if (fin2 & (!fin1)) {
-//			for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
-//				qual1 = (mm.min <= col[prevs[0][j]]);
-//				(*ret)[ret_len] = prevs[0][j];
-//				ret_len += qual1;
-//			}
-//		}
+
 		break;
 	case MAX:
-//		while ((fin1 == 0) & (fin2 == 0)) {
-//			qual1 = (col[prevs[0][cur_pos[0]]] < mm.max);
-//			qual2 = (col[prevs[1][cur_pos[1]]] < mm.max);
-//			small1 = (prevs[0][cur_pos[0]] < prevs[1][cur_pos[1]]);
-//			small2 = (prevs[1][cur_pos[1]] < prevs[0][cur_pos[0]]);
-//			adv1 = ((small1 | !small2));
-//			adv2 = ((small2 | !small1));
-//			(*ret)[ret_len] = (qual1 & adv1) ? prevs[0][cur_pos[0]] : prevs[1][cur_pos[1]];
-//			cur_pos[0] += adv1;
-//			cur_pos[1] += adv2;
-//			ret_len += ((qual1 & adv1) | (qual2 & adv2));
-//			fin1 = (cur_pos[0] == prev_lens[0]);
-//			fin2 = (cur_pos[1] == prev_lens[1]);
-//		}
-//		if (fin1 & (!fin2)){
-//			for (int j = cur_pos[1]; j < prev_lens[1]; j++) {
-//				qual2 = (col[prevs[1][j]] < mm.max);
-//				(*ret)[ret_len] = prevs[1][j];
-//				ret_len += qual2;
-//			}
-//		} else if (fin2 & (!fin1)) {
-//			for (int j = cur_pos[0]; j < prev_lens[0]; j++) {
-//				qual1 = (col[prevs[0][j]] < mm.max);
-//				(*ret)[ret_len] = prevs[0][j];
-//				ret_len += qual1;
-//			}
-//		}
+
 		break;
 	}
 	*ret = realloc(*ret, sizeof(int) * ret_len);

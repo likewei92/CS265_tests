@@ -19,7 +19,10 @@ select_pos: $(OBJ) select_pos.o
 select_bit: $(OBJ) select_bit.o
 	$(CC) -o $@.out $^ $(CFLAGS)
 
-all: select_pos select_bit
+select_pos_3way: $(OBJ) select_pos_3way.o
+	$(CC) -o $@.out $^ $(CFLAGS)
+
+all: select_pos select_bit select_pos_3way
 
 clean:
 	rm *.out *.o
