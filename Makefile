@@ -8,7 +8,7 @@ CFLAGS += -Wall -Wextra -pedantic -pthread -O3
 DEPS = 
 
 # .o object files
-OBJ = select_test.o 
+OBJ = select_pos.o 
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
