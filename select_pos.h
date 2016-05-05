@@ -1,5 +1,6 @@
 #ifndef SELECT_H__
 #define SELECT_H__
+#include <sys/types.h>
 
 int load_column(int **ret);
 
