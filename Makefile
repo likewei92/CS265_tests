@@ -7,16 +7,16 @@ CFLAGS += -Wall -Wextra -pedantic -pthread -O3
 # Header files
 DEPS = 
 
-# .o object files
-OBJ = select_pos.o 
+# common .o object files
+OBJ = 
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-select_pos: $(OBJ)
+select_pos: $(OBJ) select_pos.o
 	$(CC) -o $@.out $^ $(CFLAGS)
 	
-select_bit: $(OBJ)
+select_bit: $(OBJ) select_bit.o
 	$(CC) -o $@.out $^ $(CFLAGS)
 
 all: select_pos select_bit
