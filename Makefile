@@ -13,10 +13,13 @@ OBJ = select_pos.o
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-select_test: $(OBJ)
-	gcc -o $@.out $^ $(CFLAGS)
+select_pos: $(OBJ)
+	$(CC) -o $@.out $^ $(CFLAGS)
+	
+select_bit: $(OBJ)
+	$(CC) -o $@.out $^ $(CFLAGS)
 
-all: select_test
+all: select_pos select_bit
 
 clean:
 	rm *.out *.o
